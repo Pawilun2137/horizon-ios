@@ -53,6 +53,9 @@
 	<!-- Without a launch screen iOS runs the app letterboxed at a legacy screen size. -->
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- Allow ProMotion apps to request more than 60 FPS on supported iPhones. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UIStatusBarHidden</key>
