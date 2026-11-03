@@ -1,5 +1,5 @@
-//! The iOS winit view uses MetalKit's MTKView to request ProMotion frame rates.
 #![allow(clippy::unnecessary_cast)]
+//! The iOS winit view uses MetalKit's MTKView to request ProMotion frame rates.
 use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
@@ -21,6 +21,7 @@ extern_class!(
     pub struct MTKView;
 
     unsafe impl ClassType for MTKView {
+        #[inherits(UIResponder, NSObject)]
         type Super = UIView;
         type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "MTKView";
@@ -52,7 +53,7 @@ declare_class!(
     pub(crate) struct WinitView;
 
     unsafe impl ClassType for WinitView {
-        #[inherits(UIResponder, NSObject)]
+        #[inherits(UIView, UIResponder, NSObject)]
         type Super = MTKView;
         type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "WinitUIView";
