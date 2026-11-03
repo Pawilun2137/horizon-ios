@@ -3,7 +3,9 @@ use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::{NSObjectProtocol, ProtocolObject};
-use objc2::{declare_class, msg_send, msg_send_id, mutability, sel, ClassType, DeclaredClass};
+use objc2::{
+    declare_class, extern_class, msg_send, msg_send_id, mutability, sel, ClassType, DeclaredClass,
+};
 use objc2_foundation::{CGFloat, CGPoint, CGRect, MainThreadMarker, NSObject, NSSet, NSString};
 use objc2_ui_kit::{
     UICoordinateSpace, UIEvent, UIForceTouchCapability, UIGestureRecognizer,
@@ -11,6 +13,18 @@ use objc2_ui_kit::{
     UIPinchGestureRecognizer, UIResponder, UIRotationGestureRecognizer, UITapGestureRecognizer,
     UITextInputTraits, UITouch, UITouchPhase, UITouchType, UITraitEnvironment, UIView,
 };
+
+// objc2-metal-kit currently does not expose MTKView for UIKit here.
+// Use the native MetalKit class to enable ProMotion refresh rates on iOS.
+extern_class!(
+    pub struct MTKView;
+
+    unsafe impl ClassType for MTKView {
+        type Super = UIView;
+        type Mutability = mutability::MainThreadOnly;
+        const NAME: &'static str = "MTKView";
+    }
+);
 
 use super::app_state::{self, EventWrapper};
 use super::window::WinitUIWindow;
@@ -38,7 +52,7 @@ declare_class!(
 
     unsafe impl ClassType for WinitView {
         #[inherits(UIResponder, NSObject)]
-        type Super = UIView;
+        type Super = MTKView;
         type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "WinitUIView";
     }
@@ -358,6 +372,7 @@ impl WinitView {
         mtm: MainThreadMarker,
         window_attributes: &WindowAttributes,
         frame: CGRect,
+        preferred_frames_per_second: isize,
     ) -> Retained<Self> {
         let this = mtm.alloc().set_ivars(WinitViewState {
             pinch_gesture_recognizer: RefCell::new(None),
@@ -375,6 +390,10 @@ impl WinitView {
 
         if let Some(scale_factor) = window_attributes.platform_specific.scale_factor {
             this.setContentScaleFactor(scale_factor as _);
+        }
+
+        unsafe {
+            let _: () = msg_send![&this, setPreferredFramesPerSecond: preferred_frames_per_second];
         }
 
         this
