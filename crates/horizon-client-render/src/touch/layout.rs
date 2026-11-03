@@ -397,6 +397,17 @@ pub fn contains([x, y, w, h]: [f32; 4], p: [f32; 2]) -> bool {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn attack_drag_look_defaults_on_and_survives_saved_preferences() {
+        // Older horizon-touch.json files lack the new option.
+        let mut s: super::Settings = serde_json::from_str("{}").unwrap();
+        assert!(s.attack_drag_look);
+        s.attack_drag_look = false;
+        let restored: super::Settings =
+            serde_json::from_slice(&serde_json::to_vec(&s).unwrap()).unwrap();
+        assert!(!restored.attack_drag_look);
+    }
+
+    #[test]
     fn gyro_preferences_roundtrip_and_reject_bad_values() {
         let mut s = super::Settings::default();
         assert!(!s.gyroscope);
