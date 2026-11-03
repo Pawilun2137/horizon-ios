@@ -513,6 +513,7 @@ impl Window {
         };
 
         let screen_bounds = screen.bounds();
+        let screen_max_frames_per_second = screen.maximumFramesPerSecond();
 
         let frame = match window_attributes.inner_size {
             Some(dim) => {
@@ -526,7 +527,7 @@ impl Window {
             None => screen_bounds,
         };
 
-        let view = WinitView::new(mtm, &window_attributes, frame);
+        let view = WinitView::new(mtm, &window_attributes, frame, screen_max_frames_per_second);
 
         let gl_or_metal_backed =
             view.isKindOfClass(class!(CAMetalLayer)) || view.isKindOfClass(class!(CAEAGLLayer));
