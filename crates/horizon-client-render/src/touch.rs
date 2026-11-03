@@ -550,7 +550,8 @@ impl TouchControls {
                     .map(|(p, _)| p)
             })
     }
-    /// Coordinates are fractions of the drawable surface. Returns a look delta.
+    /// Coordinates are fractions of the drawable surface. Returns a camera delta
+    /// from a world drag or (when enabled) a held Attack / mine button drag.
     pub fn update(&mut self, id: u64, point: [f32; 2], started: bool, ended: bool) -> [f32; 2] {
         if self.custom_update(id, point, started, ended) {
             return [0.0; 2];
@@ -663,6 +664,7 @@ impl TouchControls {
             return [0.0; 2];
         }
         let aspect = self.aspect();
+        let attack_drag_look = self.settings.attack_drag_look;
         if let Some((role, previous)) = self.fingers.get_mut(&id) {
             let delta = if let Role::Look {
                 start,
@@ -681,6 +683,11 @@ impl TouchControls {
                 } else {
                     [0.0; 2]
                 }
+            } else if attack_drag_look && matches!(role, Role::Button(Button::RightTrigger)) {
+                // Keep mining pressed while the same finger controls the camera.
+                // A role belongs to its starting button until release, even if
+                // the finger slides outside the button's visual bounds.
+                [point[0] - previous[0], point[1] - previous[1]]
             } else {
                 [0.0; 2]
             };
@@ -1422,6 +1429,47 @@ mod tests {
         touch.clear();
         assert!(!touch.debug_requested && !touch.perspective_requested);
     }
+    #[test]
+    fn attack_button_drag_looks_without_releasing_mining() {
+        let mut touch = TouchControls::default();
+        touch.settings.mode = Mode::Crosshair;
+        let attack = touch.settings.placement(Control::Attack).center;
+        assert_eq!(touch.update(41, attack, true, false), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [0.0, 1.0]);
+        // Drag far outside the attack button: the same finger still mines.
+        let moved = [attack[0] - 0.18, attack[1] - 0.12];
+        let delta = touch.update(41, moved, false, false);
+        assert!((delta[0] + 0.18).abs() < 0.00001);
+        assert!((delta[1] + 0.12).abs() < 0.00001);
+        assert_eq!(touch.poll_state().triggers, [0.0, 1.0]);
+        assert_eq!(touch.update(41, moved, false, true), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [0.0; 2]);
+    }
+
+    #[test]
+    fn attack_button_camera_drag_can_be_disabled_without_changing_attack() {
+        let mut touch = TouchControls::default();
+        touch.settings.attack_drag_look = false;
+        let attack = touch.settings.placement(Control::Attack).center;
+        touch.update(42, attack, true, false);
+        assert_eq!(touch.update(42, [attack[0] - 0.1, attack[1]], false, false), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [0.0, 1.0]);
+        touch.update(42, attack, false, true);
+        assert_eq!(touch.poll_state().triggers, [0.0; 2]);
+    }
+
+    #[test]
+    fn other_buttons_do_not_move_camera_and_second_finger_still_looks() {
+        let mut touch = TouchControls::default();
+        let use_button = touch.settings.placement(Control::Use).center;
+        touch.update(1, use_button, true, false);
+        assert_eq!(touch.update(1, [use_button[0] - 0.1, use_button[1]], false, false), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+        touch.update(2, [0.5, 0.4], true, false);
+        assert_ne!(touch.update(2, [0.6, 0.4], false, false), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+    }
+
     #[test]
     fn mining_indicator_grows_outwards_with_bounded_radius() {
         assert_eq!(mining_radius(16.0, 0.0), 0.0);
