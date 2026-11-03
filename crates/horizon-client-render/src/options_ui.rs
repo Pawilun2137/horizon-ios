@@ -7291,6 +7291,16 @@ mod tests {
         assert!(pushes(&mut ui).contains(&Page::Controller));
     }
     #[test]
+    fn touch_attack_drag_look_option_can_be_toggled() {
+        let mut settings = Settings::default();
+        assert!(settings.touch.attack_drag_look);
+        Opt::TouchAttackDragLook.cycle(&mut settings, false, [1280, 720]);
+        assert!(!settings.touch.attack_drag_look);
+        Opt::TouchAttackDragLook.cycle(&mut settings, false, [1280, 720]);
+        assert!(settings.touch.attack_drag_look);
+    }
+
+    #[test]
     fn touch_options_cycle_four_schemes_and_adjust_circle_and_sensitivity() {
         let mut settings = Settings::default();
         for i in 0..crate::touch::Mode::SCHEMES.len() {
