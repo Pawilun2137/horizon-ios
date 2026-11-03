@@ -193,6 +193,7 @@ impl Opt {
         match self {
             Opt::TouchMode => "Control scheme",
             Opt::TouchCrosshairGestures => "Touch gestures",
+            Opt::TouchAttackDragLook => "Drag to look while attacking",
             Opt::TouchMouseSensitivity => "Virtual mouse sensitivity",
             Opt::TouchAnalog => "360-degree movement",
             Opt::TouchCircleSize => "Touch circle size",
@@ -552,6 +553,9 @@ impl Opt {
             Opt::TouchMouseSensitivity => {
                 Some(format!("{:.0}%", s.touch.virtual_mouse_sensitivity * 100.0))
             }
+            Opt::TouchAttackDragLook => Some(
+                if s.touch.attack_drag_look { "ON" } else { "OFF" }.into(),
+            ),
             Opt::TouchCrosshairGestures => Some(
                 if s.touch.crosshair_gestures {
                     "ON"
@@ -1099,6 +1103,7 @@ impl Opt {
             Opt::TouchSprintToggle => s.touch.sprint_toggle ^= true,
             Opt::TouchInventoryControls => s.touch.inventory_controls ^= true,
             Opt::TouchCrosshairGestures => s.touch.crosshair_gestures ^= true,
+            Opt::TouchAttackDragLook => s.touch.attack_drag_look ^= true,
             Opt::AndroidInputMode => {
                 let all = crate::android_gamepad::InputMode::ALL;
                 let i = all
@@ -2740,6 +2745,7 @@ impl OptionsUi {
                 let mut rows = vec![Row::Big(Opt::TouchMode)];
                 rows.extend(pairs(&[
                     Opt::TouchCrosshairGestures,
+                    Opt::TouchAttackDragLook,
                     Opt::TouchSensitivity,
                     Opt::TouchSensitivityHorizontal,
                     Opt::TouchSensitivityVertical,
