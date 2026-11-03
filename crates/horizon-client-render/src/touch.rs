@@ -551,7 +551,7 @@ impl TouchControls {
             })
     }
     /// Coordinates are fractions of the drawable surface. Returns a camera delta
-    /// from a world drag or (when enabled) a held Attack / mine button drag.
+    /// from a world drag or (when enabled) a held Attack / mine or Use / aim button drag.
     pub fn update(&mut self, id: u64, point: [f32; 2], started: bool, ended: bool) -> [f32; 2] {
         if self.custom_update(id, point, started, ended) {
             return [0.0; 2];
@@ -683,10 +683,12 @@ impl TouchControls {
                 } else {
                     [0.0; 2]
                 }
-            } else if attack_drag_look && matches!(role, Role::Button(Button::RightTrigger)) {
-                // Keep mining pressed while the same finger controls the camera.
-                // A role belongs to its starting button until release, even if
-                // the finger slides outside the button's visual bounds.
+            } else if attack_drag_look
+                && matches!(role, Role::Button(Button::RightTrigger | Button::LeftTrigger))
+            {
+                // Keep mining or aiming/using the item while the same finger
+                // rotates the camera. Its starting button owns the finger
+                // until release, even outside the button's visual bounds.
                 [point[0] - previous[0], point[1] - previous[1]]
             } else {
                 [0.0; 2]
@@ -1459,15 +1461,46 @@ mod tests {
     }
 
     #[test]
-    fn other_buttons_do_not_move_camera_and_second_finger_still_looks() {
+    fn use_button_drag_looks_without_releasing_aim_or_item_use() {
         let mut touch = TouchControls::default();
+        let use_button = touch.settings.placement(Control::Use).center;
+        assert_eq!(touch.update(1, use_button, true, false), [0.0; 2]);
+        assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+        // The same finger can aim the bow, use an item, or place blocks
+        // while adjusting the camera, even after leaving the button area.
+        let moved = [use_button[0] - 0.17, use_button[1] + 0.12];
+        let delta = touch.update(1, moved, false, false);
+        assert!((delta[0] + 0.17).abs() < 0.00001);
+        assert!((delta[1] - 0.12).abs() < 0.00001);
+        assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+        touch.update(1, moved, false, true);
+        assert_eq!(touch.poll_state().triggers, [0.0; 2]);
+    }
+
+    #[test]
+    fn disabling_button_drag_restores_still_camera_for_aiming() {
+        let mut touch = TouchControls::default();
+        touch.settings.attack_drag_look = false;
         let use_button = touch.settings.placement(Control::Use).center;
         touch.update(1, use_button, true, false);
         assert_eq!(touch.update(1, [use_button[0] - 0.1, use_button[1]], false, false), [0.0; 2]);
         assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+        touch.update(1, use_button, false, true);
+        assert_eq!(touch.poll_state().triggers, [0.0; 2]);
+    }
+
+    #[test]
+    fn other_buttons_do_not_move_camera_and_second_finger_still_looks() {
+        let mut touch = TouchControls::default();
+        let jump = touch.settings.placement(Control::Jump).center;
+        touch.update(1, jump, true, false);
+        assert_eq!(touch.update(1, [jump[0] - 0.08, jump[1]], false, false), [0.0; 2]);
+        assert!(touch.poll_state().held(Button::South));
         touch.update(2, [0.5, 0.4], true, false);
         assert_ne!(touch.update(2, [0.6, 0.4], false, false), [0.0; 2]);
-        assert_eq!(touch.poll_state().triggers, [1.0, 0.0]);
+        assert!(touch.poll_state().held(Button::South));
+        touch.update(1, jump, false, true);
+        assert!(!touch.poll_state().held(Button::South));
     }
 
     #[test]

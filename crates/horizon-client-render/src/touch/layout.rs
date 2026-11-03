@@ -150,7 +150,7 @@ pub struct Settings {
     pub inventory_controls: bool,
     pub virtual_mouse_sensitivity: f32,
     pub crosshair_gestures: bool,
-    /// Allow the same finger to hold Attack / mine and drag the camera.
+    /// Allow the same finger to hold Attack / mine or Use / aim and drag the camera.
     pub attack_drag_look: bool,
     pub gyroscope: bool,
     pub gyro_sensitivity: f32,

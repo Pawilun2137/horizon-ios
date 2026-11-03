@@ -193,7 +193,7 @@ impl Opt {
         match self {
             Opt::TouchMode => "Control scheme",
             Opt::TouchCrosshairGestures => "Touch gestures",
-            Opt::TouchAttackDragLook => "Drag to look while attacking",
+            Opt::TouchAttackDragLook => "Drag to look: attack / aim",
             Opt::TouchMouseSensitivity => "Virtual mouse sensitivity",
             Opt::TouchAnalog => "360-degree movement",
             Opt::TouchCircleSize => "Touch circle size",
