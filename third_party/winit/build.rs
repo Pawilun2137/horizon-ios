@@ -24,4 +24,9 @@ fn main() {
 
     // Winit defined cfgs.
     println!("cargo:rustc-check-cfg=cfg(unreleased_changelogs)");
+
+    // MTKView is provided by MetalKit on iOS (needed for ProMotion >60 Hz).
+    if std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "ios" {
+        println!("cargo:rustc-link-lib=framework=MetalKit");
+    }
 }
