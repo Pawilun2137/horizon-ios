@@ -1,3 +1,4 @@
+//! The iOS winit view uses MetalKit's MTKView to request ProMotion frame rates.
 #![allow(clippy::unnecessary_cast)]
 use std::cell::{Cell, RefCell};
 
