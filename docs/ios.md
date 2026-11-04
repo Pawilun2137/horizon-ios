@@ -219,6 +219,25 @@ Library/Caches/horizon/  ← things that can be rebuilt: shader cache, downloade
 - Logs and crash reports land in `Documents/horizon/logs` and `crash-reports`, so a tester can send
   them from the Files app.
 
+## Content mods in the iPhone's Files app
+
+Horizon iOS supports **content-only Horizon mods**: `.hmod` files or folders
+with a `horizon-mod.toml` manifest and `assets/` / `data/` files, using the
+`registries` capability. They can add blocks, items, recipes and textures,
+but Java Fabric/Forge/NeoForge `.jar` files do not execute in Horizon and
+mods requiring WebAssembly execution are not available in the iOS build.
+
+1. Open **Files → On My iPhone → Horizon → horizon → horizon-mods**.
+   The folder is created automatically when Horizon starts.
+2. Copy a compatible content-only `.hmod` file (or content mod folder) there.
+3. Open **Options → Mods** in Horizon and switch the mod **ON**.
+4. Fully quit and reopen Horizon. Content registries are read at startup;
+   toggling a mod does not inject new blocks into an already-running world.
+
+Code-only mods or malformed packages appear with an explanation rather than
+pretending to work. Back up worlds before enabling mods that add blocks/items;
+worlds opened without their mods may lose unsupported content.
+
 ## Audio
 
 - `cpal` (the `audio` feature of `horizon-client-render`) has a CoreAudio backend for iOS, so the

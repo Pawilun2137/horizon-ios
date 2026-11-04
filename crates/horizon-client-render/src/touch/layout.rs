@@ -150,6 +150,8 @@ pub struct Settings {
     pub inventory_controls: bool,
     pub virtual_mouse_sensitivity: f32,
     pub crosshair_gestures: bool,
+    /// Allow the same finger to hold Attack / mine or Use / aim and drag the camera.
+    pub attack_drag_look: bool,
     pub gyroscope: bool,
     pub gyro_sensitivity: f32,
     pub attack_indicator_left: bool,
@@ -229,6 +231,7 @@ impl Default for Settings {
             inventory_controls: false,
             virtual_mouse_sensitivity: 1.0,
             crosshair_gestures: false,
+            attack_drag_look: true,
             gyroscope: false,
             gyro_sensitivity: 1.0,
             attack_indicator_left: true,
@@ -393,6 +396,17 @@ pub fn contains([x, y, w, h]: [f32; 4], p: [f32; 2]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn attack_drag_look_defaults_on_and_survives_saved_preferences() {
+        // Older horizon-touch.json files lack the new option.
+        let mut s: super::Settings = serde_json::from_str("{}").unwrap();
+        assert!(s.attack_drag_look);
+        s.attack_drag_look = false;
+        let restored: super::Settings =
+            serde_json::from_slice(&serde_json::to_vec(&s).unwrap()).unwrap();
+        assert!(!restored.attack_drag_look);
+    }
+
     #[test]
     fn gyro_preferences_roundtrip_and_reject_bad_values() {
         let mut s = super::Settings::default();

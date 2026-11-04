@@ -35,7 +35,9 @@ concurrency:
 jobs:
   build:
     if: github.event_name != 'workflow_dispatch' || inputs.backfill == ''
-    runs-on: macos-latest
+    # Intel fallback while GitHub-hosted macOS ARM64 runner allocation is degraded.
+    # Cross-compile to aarch64-apple-ios using the iPhoneOS SDK.
+    runs-on: macos-15-intel
     timeout-minutes: 120
     env:
       HORIZON_TELEMETRY_URL: "off"
