@@ -311,16 +311,80 @@ fn register_mob_effects(mods: &[horizon_client::mod_content::ContentMod]) {
     }
 }
 
-/// A build without the `mods` feature: no mod runs.
+/// A build without the executable WebAssembly runtime still supports content mods.
+/// Show them in Options > Mods so players can enable their assets/registries.
+#[cfg(not(feature = "mods"))]
+fn content_mod_rows(dir: &std::path::Path, dev: &[PathBuf]) -> Vec<mod_list::Installed> {
+    use horizon_mods::{Capability, Content, Package};
+    let mut paths = horizon_mods::find(dir);
+    paths.retain(|p| !dev.contains(p));
+    paths.extend(dev.iter().cloned());
+    paths
+        .into_iter()
+        .map(|path| {
+            let file = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let is_dev = dev.contains(&path);
+            match Package::read(&path) {
+                Ok(package) => {
+                    let manifest = package.manifest;
+                    let code = package.wasm.is_some();
+                    let registries = manifest.capabilities.contains(&Capability::Registries);
+                    let problem = if !registries {
+                        Some("Requires executable mod code, unavailable in this mobile build".into())
+                    } else {
+                        match Content::read(&path, &manifest) {
+                            Ok(content) if !content.is_empty() => None,
+                            Ok(_) => Some("No assets or data to load in this mobile build".into()),
+                            Err(error) => Some(format!("Content invalid: {error}")),
+                        }
+                    };
+                    let description = if code {
+                        format!(
+                            "Content can load, but the mod's executable code cannot run on iOS. {}",
+                            manifest.description
+                        )
+                    } else {
+                        format!("Content-only mod. {}", manifest.description)
+                    };
+                    mod_list::Installed {
+                        // An unsupported code-only mod cannot be enabled by tapping its row.
+                        id: if problem.is_none() { manifest.id.clone() } else { String::new() },
+                        title: format!("{} {}", manifest.name, manifest.version),
+                        description: description.trim().to_owned(),
+                        problem,
+                        dev: is_dev,
+                        has_settings: false,
+                        native: None,
+                    }
+                }
+                Err(error) => mod_list::Installed {
+                    id: String::new(),
+                    title: file,
+                    description: String::new(),
+                    problem: Some(format!("Cannot read mod: {error}")),
+                    dev: is_dev,
+                    has_settings: false,
+                    native: None,
+                },
+            }
+        })
+        .collect()
+}
+
 #[cfg(not(feature = "mods"))]
 impl Game<'_> {
-    /// Says why the installed and dev mods don't run.
+    /// Content loads during startup regardless of whether code mods are compiled in.
+    /// Build the Options > Mods list from disk, not from the absent WASM runtime.
     pub(super) fn start_mods(&mut self) {
         let dir = Self::options_path().with_file_name(mod_list::DIR);
-        let found = horizon_mods::find(&dir).len() + self.mods.dev.len();
-        if found > 0 {
-            log::warn!(
-                "Horizon: {found} mod(s) not started: this build has no mod runtime (build with --features mods)"
+        if let Err(error) = std::fs::create_dir_all(&dir) {
+            log::warn!("Horizon: cannot create content mods folder {}: {error}", dir.display());
+        }
+        self.settings.mods.installed = content_mod_rows(&dir, &self.mods.dev);
+        if !self.settings.mods.installed.is_empty() {
+            log::info!(
+                "Horizon: discovered {} mod(s); on mobile, content mods load at startup",
+                self.settings.mods.installed.len()
             );
         }
         self.list_native_mods();
@@ -1470,6 +1534,54 @@ pub(super) fn warn_no_block_entity(block: &str, id: &str) {
 mod tests {
     use super::*;
     use horizon_client::mod_list::Installed;
+
+    #[cfg(not(feature = "mods"))]
+    #[test]
+    fn mobile_content_mods_show_up_and_code_mods_cannot_be_enabled() {
+        let dir = std::env::temp_dir().join(format!(
+            "horizon-mobile-content-mods-{}", std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let content_manifest = r#"id = "sample"
+name = "Sample content"
+version = "1.0"
+api = "0.2"
+side = "both"
+capabilities = ["registries"]
+"#;
+        let mod_bytes = horizon_mods::Package::write_files(
+            content_manifest,
+            None,
+            &[(
+                "data/sample/horizon/item/gem.json",
+                br#"{"template":"minecraft:iron_ingot"}"#,
+            )],
+        )
+        .unwrap();
+        std::fs::write(dir.join("sample.hmod"), mod_bytes).unwrap();
+        // The mod's code cannot run in a mobile build, so keep the row disabled.
+        let code_manifest = r#"id = "code_only"
+name = "Code only"
+version = "1.0"
+api = "0.1"
+side = "client"
+capabilities = ["chat"]
+"#;
+        let code_bytes = horizon_mods::Package::write_files(code_manifest, Some(b"wasm"), &[])
+            .unwrap();
+        std::fs::write(dir.join("code_only.hmod"), code_bytes).unwrap();
+        let rows = content_mod_rows(&dir, &[]);
+        assert_eq!(rows.len(), 2);
+        let content = rows.iter().find(|r| r.id == "sample").unwrap();
+        assert_eq!(content.title, "Sample content 1.0");
+        assert!(content.problem.is_none());
+        let code = rows.iter().find(|r| r.title == "Code only 1.0").unwrap();
+        assert!(code.id.is_empty());
+        assert!(code.problem.is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     use std::io::Write;
 
     /// A minimal `.hnmod` the registry accepts: its manifest and its mixin's.
